@@ -5,10 +5,12 @@
   <title>Ultimate Chess Pro</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0/chess.min.js"></script>
+  <!-- CHESS ENGINE (STABLE) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
 
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#020617" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#020617">
 
   <style>
     body {
@@ -16,14 +18,14 @@
       min-height: 100vh;
       background: radial-gradient(circle at top, #020617, #000);
       color: #e5e7eb;
-      font-family: system-ui;
+      font-family: system-ui, sans-serif;
       display: grid;
       grid-template-columns: auto 280px;
       gap: 20px;
       padding: 20px;
     }
 
-    h1 { margin: 0 0 10px; }
+    h1 { margin: 0 0 12px; }
 
     .board {
       display: grid;
@@ -40,16 +42,17 @@
       justify-content: center;
       font-size: 40px;
       cursor: pointer;
-      transition: background .15s ease;
+      user-select: none;
     }
 
     .light { background: #f8fafc; color: #020617; }
-    .dark { background: #94a3b8; }
+    .dark  { background: #94a3b8; }
+
     .selected { outline: 4px solid #ef4444; }
     .hint { background: #22c55e !important; }
 
     .side {
-      background: rgba(255,255,255,.04);
+      background: rgba(255,255,255,.05);
       border-radius: 16px;
       padding: 16px;
       display: flex;
@@ -57,7 +60,11 @@
       gap: 12px;
     }
 
-    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
 
     button, select {
       background: #2563eb;
@@ -69,53 +76,45 @@
       font-weight: 500;
     }
 
+    .status, .elo {
+      font-size: 14px;
+      opacity: .9;
+    }
+
     .moves {
       flex: 1;
       overflow-y: auto;
       font-size: 13px;
-      background: rgba(0,0,0,.3);
+      line-height: 1.6;
+      background: rgba(0,0,0,.35);
       border-radius: 10px;
       padding: 10px;
-    }
-
-    .status, .elo { font-size: 14px; }
-    #adBox {
-      background: rgba(255,255,255,.08);
-      padding: 10px;
-      border-radius: 12px;
-      font-size: 13px;
-      text-align: center;
     }
   </style>
 </head>
 <body>
 
-<div>
-  <h1>♟️ Ultimate Chess Pro</h1>
-  <div class="board" id="board"></div>
-</div>
-
-<div class="side">
-  <div class="elo" id="elo"></div>
-  <div class="elo" id="premiumStatus"></div>
-  <div id="adBox">Ads Banner</div>
-
-  <div class="controls">
-    <button onclick="resetGame()">Reset</button>
-    <button onclick="undoMove()">Undo</button>
-    <button onclick="saveGame()">Save</button>
-    <button onclick="loadGame()">Load</button>
-    <button onclick="buyPremium()">Premium</button>
-    <select onchange="setDifficulty(this.value)">
-      <option value="2">Easy</option>
-      <option value="3" selected>Medium</option>
-      <option value="4">Hard</option>
-    </select>
+  <div>
+    <h1>♟️ Ultimate Chess Pro</h1>
+    <div class="board" id="board"></div>
   </div>
 
-  <div class="status" id="status"></div>
-  <div class="moves" id="moves"></div>
-</div>
+  <div class="side">
+    <div class="elo" id="elo"></div>
+
+    <div class="controls">
+      <button onclick="resetGame()">Reset</button>
+      <button onclick="undoMove()">Undo</button>
+      <select onchange="setDifficulty(this.value)">
+        <option value="2">Easy</option>
+        <option value="3" selected>Medium</option>
+        <option value="4">Hard</option>
+      </select>
+    </div>
+
+    <div class="status" id="status"></div>
+    <div class="moves" id="moves"></div>
+  </div>
 
 <script>
   const game = new Chess();
@@ -123,37 +122,18 @@
   const statusEl = document.getElementById('status');
   const movesEl = document.getElementById('moves');
   const eloEl = document.getElementById('elo');
-  const adBox = document.getElementById('adBox');
-  const premiumStatus = document.getElementById('premiumStatus');
 
   let selected = null;
   let hints = [];
   let depth = 3;
 
   let elo = Number(localStorage.getItem('elo')) || 1200;
-  let premium = localStorage.getItem('premium') === 'true';
 
   const values = { p:10, n:30, b:30, r:50, q:90, k:900 };
   const icons = {
     p:'♟', r:'♜', n:'♞', b:'♝', q:'♛', k:'♚',
     P:'♙', R:'♖', N:'♘', B:'♗', Q:'♕', K:'♔'
   };
-
-  function updatePremiumUI() {
-    if (premium) {
-      adBox.style.display = 'none';
-      premiumStatus.textContent = 'Premium User 👑';
-    } else {
-      adBox.style.display = 'block';
-      premiumStatus.textContent = 'Free User';
-    }
-  }
-
-  function buyPremium() {
-    premium = true;
-    localStorage.setItem('premium', 'true');
-    updatePremiumUI();
-  }
 
   function draw() {
     boardEl.innerHTML = '';
@@ -221,9 +201,10 @@
       let max = -Infinity;
       for (const m of moves) {
         game.move(m);
-        max = Math.max(max, minimax(d-1, alpha, beta, false));
+        const val = minimax(d-1, alpha, beta, false);
         game.undo();
-        alpha = Math.max(alpha, max);
+        max = Math.max(max, val);
+        alpha = Math.max(alpha, val);
         if (beta <= alpha) break;
       }
       return max;
@@ -231,9 +212,10 @@
       let min = Infinity;
       for (const m of moves) {
         game.move(m);
-        min = Math.min(min, minimax(d-1, alpha, beta, true));
+        const val = minimax(d-1, alpha, beta, true);
         game.undo();
-        beta = Math.min(beta, min);
+        min = Math.min(min, val);
+        beta = Math.min(beta, val);
         if (beta <= alpha) break;
       }
       return min;
@@ -272,19 +254,6 @@
     depth = Number(d);
   }
 
-  function saveGame() {
-    localStorage.setItem('savedGame', game.pgn());
-    alert('Game saved');
-  }
-
-  function loadGame() {
-    const pgn = localStorage.getItem('savedGame');
-    if (!pgn) return alert('No saved game');
-    game.reset();
-    game.load_pgn(pgn);
-    draw();
-  }
-
   function resetGame() {
     if (game.in_checkmate()) {
       elo += game.turn() === 'w' ? -20 : 20;
@@ -307,7 +276,6 @@
     navigator.serviceWorker.register('sw.js');
   }
 
-  updatePremiumUI();
   draw();
 </script>
 </body>
